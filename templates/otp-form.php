@@ -7,7 +7,11 @@
 </head>
 <body>
     
-  
+  <form action="" method="post">
+    <label>Enter OTP</label>
+    <input type="text" name="" />
+    <input type="submit" name="" value="" />
+  </form>
 
 </body>
 </html>

@@ -12,6 +12,12 @@
 * License URI: https://www.gnu.org/licenses/gpl-2.0.html
 */
 
+
+
+
+
+
+
 add_action('wp_login', 'wtfm_otp_login', 10, 2);
 
 function wtfm_otp_login($user_login, $user) {
@@ -56,11 +62,13 @@ add_action('template_redirect', function() {
             <title>Enter OTP</title>
         </head>
         <body>
+        <div class="otp_form">
             <form action="" method="post">
                 <label>Enter OTP:</label>
                 <input type="text" name="otp" required />
                 <input type="submit" name="verify_otp" value="Verify" />
             </form>
+            </div>
         </body>
         </html>';
         exit;

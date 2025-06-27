@@ -14,21 +14,57 @@
 
 
 
+// Admin Menu 
+function wtfm_add_menu() {
+     add_menu_page(
+        'WP Two Factor Mysite',
+        'Two Factor',
+        'manage_options',
+        'two_fact_mysite',
+        'wtfm_two_callback',
+        'dashicons-admin-network',
+        50
+     );
+}
+add_action('admin_menu', 'wtfm_add_menu');
 
 
+function wtfm_two_callback() {
+    ?>
+    <div class="wrap">
+        <h2>Two Factor Authentication Settings</h2>
+        <form action="options.php" method="post">
+            <?php
+            settings_fields('wtfm_settings_group');
+            do_settings_sections('wtfm_settings');
+            submit_button('Save Changes');
+
+            ?>
+        </form>
+    </div>
+    <?php
+
+    
+}
 
 
+// Send OTP after login and redirect to verify page
 add_action('wp_login', 'wtfm_otp_login', 10, 2);
-
 function wtfm_otp_login($user_login, $user) {
+    wp_clear_auth_cookie(); // Force logout before OTP verify
     $otp = rand(100000, 999999);
     set_transient('otp_' . $user->ID, $otp, 300); // store OTP for 5 minutes
 
-    wp_mail(
+    $sent = wp_mail(
         $user->user_email,
         'Your OTP Code',
-        'Your OTP is: ' . $otp
+        'Your OTP is: <strong>' . $otp . '</strong>',
+        ['Content-Type: text/html; charset=UTF-8']
     );
+
+    if (!$sent) {
+        error_log('OTP email failed to send to ' . $user->user_email);
+    }
 
     wp_redirect(home_url('/otp-verify?user_id=' . $user->ID));
     exit;
@@ -44,17 +80,18 @@ add_action('template_redirect', function() {
             $stored_otp = get_transient('otp_' . $user_id);
 
             if ($stored_otp && $stored_otp == $otp_input) {
+                delete_transient('otp_' . $user_id); // remove OTP after use
                 wp_set_auth_cookie($user_id);
                 wp_redirect(home_url('/'));
                 exit;
             } else {
-                echo "<p style='color:red;'>Invalid OTP!</p>";
+                echo "<p style='color:red; text-align:center;'>Invalid OTP!</p>";
             }
         }
 
         // Show OTP form
         echo '
-         <!DOCTYPE html>
+        <!DOCTYPE html>
         <html lang="en">
         <head>
             <meta charset="UTF-8">
@@ -63,64 +100,64 @@ add_action('template_redirect', function() {
         </head>
         <body>
         <style>
-        body{
-            background-color: #F5F5FA;
-        }
-        .otp_form{
-          margin: 0;
-          padding: 0;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          height: 60vh;
-        }
-        .sub_otp_form{
-            background-color: #fff;
-            width: 300px;
-            padding: 30px;
-            height: 180px;
-            align-items: center;
-            justify-content: center;
-            display: flex;
-            text-align: center;
-            border-radius: 10px;
-            box-shadow: 5px 5px 10px #ccc;
-        }
-        .sub_otp_form form label{
-            font-size: 25px;
-            font-weight: 400;
-        }
-        .sub_otp_form form input[type="number"]{
-            width: 200px;
-            padding: 10px;
-            border: 1px solid #ddd;
-            box-shadow: 1px 1px 10px #ccc;
-            border-radius: 5px;
-        }
-        .sub_otp_form form input[type="submit"]{
-            padding: 10px 25px;
-            border: none;
-            background: blue;
-            color: #fff;
-            border-radius: 5px;
-            transition: 0.5s;
-            font-size: 16px;
-            font-weight: bold;
-        }
-        .sub_otp_form form input[type="submit"]:hover{
-            background-color: #000;
-        }
-           
-        
+            body {
+                background-color: #F5F5FA;
+                font-family: Arial, sans-serif;
+            }
+            .otp_form {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+            }
+            .sub_otp_form {
+                background-color: #fff;
+                padding: 30px;
+                width: 300px;
+                border-radius: 10px;
+                box-shadow: 0 0 15px rgba(0,0,0,0.1);
+                text-align: center;
+            }
+            .sub_otp_form label {
+                font-size: 20px;
+                display: block;
+                margin-bottom: 10px;
+            }
+            .sub_otp_form input[type="number"],
+            .sub_otp_form input[type="submit"] {
+                width: 90%;
+                padding: 10px;
+                margin: 10px 0;
+                border-radius: 5px;
+                border: 1px solid #ccc;
+            }
+            .sub_otp_form input[type="submit"] {
+                background-color: #0073aa;
+                color: white;
+                border: none;
+                font-weight: bold;
+                cursor: pointer;
+            }
+            .sub_otp_form input[type="submit"]:hover {
+                background-color: #005177;
+            }
+            .back-link {
+                margin-top: 10px;
+                display: block;
+                font-size: 14px;
+                text-decoration: none;
+                color: #0073aa;
+            }
         </style>
         <div class="otp_form">
-          <div class="sub_otp_form">
-            <form method="post">
-              <label for="otp">Enter OTP:</label><br><br>
-              <input type="number" id="otp" name="otp" placeholder="Enter code" required /><br><br>
-              <input type="submit" name="verify_otp" value="Verify" />
-            </form>
-           </div>
+            <div class="sub_otp_form">
+                <form method="post">
+                    <label for="otp">Enter OTP</label>
+                    <input type="number" id="otp" name="otp" placeholder="Enter code" required />
+                    <input type="submit" name="verify_otp" value="Verify" />
+                </form>
+                <a class="back-link" href="' . wp_login_url() . '">← Back to login</a>
+            </div>
         </div>
         </body>
         </html>';
